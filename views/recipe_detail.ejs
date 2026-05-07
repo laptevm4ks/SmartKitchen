@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      #adaptation-status { padding: 15px 20px; margin: 20px 0; border-radius: 20px 10px 25px 15px; font-weight: 600; display: none; }
+      #adapted-recipe-output { padding: 25px; margin: 20px 0; border: 2px dashed var(--color-bg-accent); border-radius: 25px; background: rgba(255,255,255,0.5); }
+      #recipe-detail { margin-bottom: 30px; }
+      ul, ol { margin: 15px 0 15px 25px; }
+      li { margin: 10px 0; padding-left: 10px; border-left: 3px solid var(--color-accent-primary); border-radius: 0 0 0 5px; }
+    </style>
+  </head>
+  <body>
+    <%- include('partials/header', { 
+      showBackButton: false, 
+      extraLinks: [
+        { href: '/api/recipes', text: 'К списку' },
+        { href: '/dashboard', text: 'В меню' }
+      ] 
+    }) %>
+    <div class="app-container">
+      <div class="glass-panel">
+        <div id="recipe-detail">
+          <p>Загрузка деталей оригинального рецепта...</p>
+        </div>
+      </div>
+
+      <div id="adaptation-section" class="glass-panel">
+        <h2 style="font-family: 'Caveat', cursive; font-size: 2.5rem; color: var(--color-text-main); border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Адаптация Рецепта ИИ</h2>
+        <p>
+          Измените рецепт под диетическое ограничение (например: "без сахара",
+          "веганский", "для диабетиков").
+        </p>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <input
+            type="text"
+            id="restriction-input"
+            class="form-control"
+            style="flex: 1; min-width: 250px; margin: 0;"
+            placeholder="Введите ограничение..."
+            required
+          />
+          <button id="adapt-button" class="btn btn-primary" onclick="adaptRecipe()" style="margin: 0;">Адаптировать</button>
+        </div>
+        <div id="adaptation-status" class="status-msg"></div>
+
+        <h3 id="adapted-title" style="display: none">Адаптированный Рецепт:</h3>
+        <div id="adapted-recipe-output" style="display: none">
+          <p>Нажмите "Адаптировать", чтобы увидеть результат.</p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const userId = parseInt("<%= userId %>", 10);
+      const recipeId = parseInt("<%= recipeId %>", 10);
+      let originalRecipeData = null;
+      let adaptedRecipeData = null;
+
+      document.addEventListener("DOMContentLoaded", loadRecipeDetail);
+
+      function showMessage(elementId, text, isError = false) {
+        const el = document.getElementById(elementId);
+        el.textContent = text;
+        el.style.display = "block";
+        if (!isError) { setTimeout(() => { el.style.display = "none"; }, 5000); }
+      }
+
+      function renderRecipeHtml(recipe, isAdapted = false) {
+        if (!recipe || !recipe.instructions) { return "<p>Не удалось получить структуру рецепта.</p>"; }
+        const ingredientsList = recipe.ingredients && Array.isArray(recipe.ingredients)
+            ? `<ul>${recipe.ingredients.map((item) => {
+                  const quantity = item.quantity || "";
+                  const unit = item.unit_of_measure || "";
+                  const name = item.name || item.ingredient_name || "Не указано";
+                  return `<li>${quantity} ${unit} ${name}</li>`;
+                }).join("")}</ul>`
+            : "<p>Список ингредиентов отсутствует.</p>";
+
+        let saveButtonHtml = "";
+        if (isAdapted) { saveButtonHtml = `<button id="save-adapted-btn" class="btn btn-primary" onclick="saveAdaptedRecipe(this)">Сохранить Адаптированный Рецепт</button>`; }
+
+        const title = recipe.title || originalRecipeData?.title || "Новый рецепт";
+        const description = recipe.description || originalRecipeData?.description || "Нет описания";
+        const servings = recipe.servings || originalRecipeData?.servings || 1;
+        const prepTime = recipe.prep_time_min || recipe.preparation_time_min || 0;
+        const cookTime = recipe.cook_time_min || recipe.cooking_time_min || 0;
+        const instructionsContent = recipe.instructions ? recipe.instructions.replace(/\n/g, "<br>") : "Нет инструкций.";
+
+        const dietaryWarningHtml = recipe.dietary_warning ? `<div class="warning-box">⚠️ ${recipe.dietary_warning}</div>` : "";
+        
+        return `
+            <h4>${title}</h4>
+            ${dietaryWarningHtml}
+            <p><strong>Описание:</strong> ${description}</p>
+            <p><strong>Порции:</strong> ${servings}</p>
+            <p><strong>Время (подг/гот):</strong> ${prepTime} / ${cookTime} мин</p>
+            <h5 style="font-family: 'Caveat', cursive; font-size: 2rem;">Ингредиенты</h5>
+            ${ingredientsList}
+            <h5 style="font-family: 'Caveat', cursive; font-size: 2rem;">Инструкции</h5>
+            <div>${instructionsContent}</div>
+            ${isAdapted ? `<div style="margin-top:20px;">${saveButtonHtml}</div>` : ""}
+          `;
+      }
+
+      async function loadRecipeDetail() {
+        const detailDiv = document.getElementById("recipe-detail");
+        if (!recipeId || isNaN(recipeId)) { detailDiv.innerHTML = `<p>Ошибка: ID рецепта недействителен.</p>`; return; }
+        try {
+          const response = await fetch(`/api/recipes/${recipeId}`);
+          const recipe = await response.json();
+          if (!response.ok) throw new Error(recipe.error || "Ошибка загрузки рецепта.");
+          originalRecipeData = recipe;
+          detailDiv.innerHTML = renderRecipeHtml(originalRecipeData, false);
+        } catch (error) {
+          console.error("Ошибка при загрузке деталей рецепта:", error);
+          detailDiv.innerHTML = `<p>Ошибка загрузки рецепта: ${error.message}</p>`;
+        }
+      }
+
+      async function adaptRecipe() {
+        const restrictionInput = document.getElementById("restriction-input");
+        const restriction = restrictionInput.value.trim();
+        const output = document.getElementById("adapted-recipe-output");
+        const title = document.getElementById("adapted-title");
+        const adaptButton = document.getElementById("adapt-button");
+
+        if (!restriction) { showMessage("adaptation-status", "Введите диетическое ограничение.", true); return; }
+        if (!originalRecipeData) { showMessage("adaptation-status", "Сначала необходимо загрузить оригинал.", true); return; }
+
+        adaptButton.disabled = true;
+        restrictionInput.disabled = true;
+        showMessage("adaptation-status", `ИИ адаптирует рецепт под "${restriction}". Подождите...`, false);
+        output.innerHTML = "<div>Адаптация...</div>";
+        output.style.display = "block";
+        title.style.display = "none";
+
+        try {
+          const response = await fetch(`/api/ai/adapt/${recipeId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: userId, restriction: restriction }),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            adaptedRecipeData = result.adaptedRecipe;
+            showMessage("adaptation-status", `Рецепт успешно адаптирован!`, false);
+            output.innerHTML = renderRecipeHtml(adaptedRecipeData, true);
+            title.textContent = `Адаптированный Рецепт (${result.restriction})`;
+            title.style.display = "block";
+          } else {
+            showMessage("adaptation-status", result.error || "Ошибка сервера.", true);
+            output.innerHTML = "Не удалось адаптировать рецепт.";
+          }
+        } catch (error) {
+          console.error("Ошибка при адаптации:", error);
+          showMessage("adaptation-status", "Ошибка сети: " + error.message, true);
+        } finally { adaptButton.disabled = false; restrictionInput.disabled = false; }
+      }
+
+      async function saveAdaptedRecipe(saveButton) {
+        if (!adaptedRecipeData) return;
+        saveButton.disabled = true;
+        saveButton.textContent = "Сохранение...";
+        try {
+          const response = await fetch("/api/recipes/save_generated", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: userId, recipe: adaptedRecipeData }),
+          });
+          if (response.ok) {
+            showMessage("adaptation-status", `Сохранено!`, false);
+            saveButton.style.display = "none";
+          } else { throw new Error("Ошибка при сохранении."); }
+        } catch (error) {
+          console.error("Ошибка сохранения:", error);
+          showMessage("adaptation-status", `Ошибка: ${error.message}`, true);
+          saveButton.disabled = false;
+          saveButton.textContent = "Сохранить Адаптированный Рецепт";
+        }
+      }
+    </script>
+  </body>
+</html>

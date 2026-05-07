@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+        .diet-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+        .diet-item { display: flex; align-items: flex-start; gap: 15px; padding: 15px; border: 2px solid var(--color-bg-accent); border-radius: 12px; transition: background-color 0.2s; cursor: pointer; }
+        .diet-item:hover { background-color: var(--color-highlight); }
+        .diet-item input[type="checkbox"] { margin-top: 5px; }
+        .diet-info strong { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+        .diet-info p { font-size: 0.9rem; color: #795548; margin: 0; }
+        .btn-delete-diet { background: none; border: none; color: var(--color-accent-primary); font-size: 1.2rem; cursor: pointer; margin-left: auto; padding: 5px; border-radius: 5px; transition: all 0.2s; }
+        .btn-delete-diet:hover { background-color: #ffebee; color: #c62828; }
+        .add-diet-form { margin-top: 30px; padding-top: 20px; border-top: 2px dashed var(--color-bg-accent); }
+        .add-diet-form h3 { margin-bottom: 15px; color: var(--color-text-main); font-family: 'Caveat', cursive; font-size: 2rem; border-left: 5px solid var(--color-accent-primary); padding-left: 10px; }
+    </style>
+</head>
+
+<body>
+    <%- include('partials/header', { showBackButton: true, title: 'Ваши Диеты и Ограничения' }) %>
+    <div class="app-container">
+    <div class="glass-panel" style="max-width: 600px; margin: 0 auto;">
+        <% if (success) { %>
+            <div class="message success" style="padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: 600; background-color: #e8f5e9; color: var(--color-success); border: 1px solid #c8e6c9;">
+                <%= success %>
+            </div>
+            <script>
+                setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
+            </script>
+            <% } %>
+
+                <% if (error) { %>
+                    <div class="message error" style="padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; font-weight: 600; background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2;">
+                        <%= error %>
+                    </div>
+                    <% } %>
+
+                        <form action="/api/diets" method="POST" style="background: transparent; box-shadow: none; border: none; padding: 0; margin: 0;">
+                            <div class="diet-list">
+                                <% restrictions.forEach(restriction=> { %>
+                                    <label class="diet-item">
+                                        <div class="custom-checkbox" style="margin-top: 2px;">
+                                            <input type="checkbox" name="selectedRestrictions"
+                                                value="<%= restriction.restriction_id %>"
+                                                <%=userDietIds.includes(restriction.restriction_id) ? 'checked' : '' %>>
+                                        </div>
+                                        <div class="diet-info" style="flex-grow: 1;">
+                                            <strong>
+                                                <%= restriction.name %>
+                                            </strong>
+                                            <p>
+                                                <%= restriction.description %>
+                                            </p>
+                                        </div>
+                                        <button type="button" class="btn-delete-diet" onclick="event.preventDefault(); deleteDiet('<%= restriction.restriction_id %>')" title="Удалить">🗑️</button>
+                                    </label>
+                                    <% }) %>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" style="width: 100%;">Сохранить Настройки</button>
+                        </form>
+
+                        <div class="add-diet-form">
+                            <h3>Добавить новую диету</h3>
+                            <form onsubmit="addDiet(event)" style="background: transparent; box-shadow: none; border: none; padding: 0; margin: 0;">
+                                <input type="text" id="newDietName" class="form-control" placeholder="Название диеты" style="margin-bottom: 10px;" required>
+                                <textarea id="newDietDesc" class="form-control" placeholder="Описание (необязательно)" rows="2" style="margin-bottom: 10px;"></textarea>
+                                <button type="submit" class="btn btn-secondary" style="background-color: #4caf50; border-color: #2e7d32; box-shadow: 4px 6px 0px #2e7d32;">Добавить диету</button>
+                            </form>
+                        </div>
+    </div>
+
+    <script>
+        async function deleteDiet(id) {
+            if (!confirm("Удалить эту диету?")) return;
+            try {
+                const res = await fetch(`/api/diets/${id}`, { method: 'DELETE' });
+                if (res.ok) window.location.reload();
+                else alert("Ошибка при удалении.");
+            } catch(e) { alert("Ошибка сети"); }
+        }
+        async function addDiet(event) {
+            event.preventDefault();
+            const name = document.getElementById('newDietName').value;
+            const description = document.getElementById('newDietDesc').value;
+            try {
+                const res = await fetch('/api/diets/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+                if (res.ok) window.location.reload();
+                else alert("Ошибка при добавлении.");
+            } catch(e) { alert("Ошибка сети"); }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      /* Стили для кастомного выпадающего списка */
+      .ingredient-picker { position: relative; display: inline-block; width: 100%; max-width: 300px; }
+      #ingredient-input-search { width: 100%; margin-bottom: 0; }
+      #ingredient-dropdown {
+        position: absolute; top: 100%; left: 0; z-index: 10; width: 100%; max-height: 250px;
+        overflow-y: auto; border: 2px solid var(--color-accent-primary); border-top: none;
+        background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1); border-radius: 0 0 15px 15px;
+        display: none; padding: 0;
+      }
+      .dropdown-item {
+        padding: 8px 15px; cursor: pointer; list-style: none;
+        border-bottom: 1px dashed var(--color-accent-primary); transition: background-color 0.2s;
+      }
+      .dropdown-item:last-child { border-bottom: none; }
+      .dropdown-item:hover { background-color: var(--color-bg-accent); }
+      .dropdown-item.selected { background-color: var(--color-accent-secondary); font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <%- include('partials/header', { showBackButton: true }) %>
+
+    <div class="app-container">
+
+    
+    <div class="glass-panel">
+      <h2>Добавление Запаса</h2>
+      <form id="add-inventory-form" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+        <div class="ingredient-picker" style="flex: 1; min-width: 250px;">
+          <input
+            type="text"
+            id="ingredient-input-search"
+            class="form-control"
+            placeholder="Выберите или начните вводить ингредиент"
+            required
+          />
+          <input
+            type="hidden"
+            id="ingredient-select-value"
+            name="ingredient_id"
+            required
+          />
+          <div id="ingredient-dropdown"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center; flex: 1; min-width: 200px;">
+          <input
+            type="number"
+            id="quantity"
+            class="form-control"
+            placeholder="Количество"
+            min="0.01"
+            step="any"
+            required
+          />
+          <span id="unit-display" style="font-weight: 600; min-width: 40px;">ед.</span>
+        </div>
+
+        <input type="date" id="expiration-date" class="form-control" placeholder="Срок годности" style="flex: 1; min-width: 150px;" />
+        <button type="submit" class="btn btn-primary">Добавить/Обновить</button>
+      </form>
+      <div id="inventory-status" class="status-msg"></div>
+    </div>
+
+    <div class="glass-panel">
+      <h2>Запасы</h2>
+      <div style="margin-bottom: 15px;">
+        <button id="edit-btn" onclick="toggleEditMode()" class="btn btn-secondary">Редактировать</button>
+        <button id="save-btn" onclick="saveChanges()" class="btn btn-primary" style="display: none">
+          Сохранить
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="modern-table">
+          <thead>
+            <tr>
+              <th>Ингредиент</th>
+              <th>Количество</th>
+              <th>Ед. изм.</th>
+              <th>Срок годности</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-list">
+            <tr>
+              <td colspan="5">Загрузка...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    
+    <div class="glass-panel" style="border: 3px solid #2196f3; background-color: #e3f2fd;">
+      <h2>📷 AI-Сканирование Чека</h2>
+      <p style="margin-bottom: 15px; color: var(--color-text-main);">Загрузите фото чека или продуктов на столе, и ИИ автоматически распознает и добавит их в ваш инвентарь!</p>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <input type="file" id="receipt-upload" accept="image/*" class="form-control" style="flex: 1; min-width: 250px; background: white;">
+        <button onclick="scanReceipt()" id="scan-receipt-btn" class="btn btn-primary" style="background-color: #2196f3; border-color: #1976d2; box-shadow: 4px 6px 0px #1976d2;">Распознать фото</button>
+      </div>
+      <div id="receipt-status" class="status-msg"></div>
+    </div>
+
+    <div class="glass-panel">
+      <h2>Доступные Рецепты (из того что есть)</h2>
+      <div id="available-recipes" class="grid-3">Загрузка...</div>
+    </div>
+  </div>
+
+    <script>
+      let allIngredients = []; // Массив для хранения всех ингредиентов
+      let isEditMode = false,
+        originalData = [];
+      let isAddingNewIngredient = false;
+
+      function toggleNewIngredientMode(enabled) {
+          isAddingNewIngredient = enabled;
+          const qtyInp = document.getElementById("quantity");
+          const dateInp = document.getElementById("expiration-date");
+          const searchInp = document.getElementById("ingredient-input-search");
+          const btn = document.querySelector("#add-inventory-form button[type='submit']");
+          
+          if (enabled) {
+              qtyInp.disabled = true;
+              dateInp.disabled = true;
+              qtyInp.value = "";
+              dateInp.value = "";
+              searchInp.value = "";
+              searchInp.placeholder = "Введите название нового продукта...";
+              btn.textContent = "Создать ингредиент";
+              document.getElementById("ingredient-select-value").value = "";
+              searchInp.focus();
+          } else {
+              qtyInp.disabled = false;
+              dateInp.disabled = false;
+              searchInp.placeholder = "Выберите или начните вводить ингредиент";
+              btn.textContent = "Добавить/Обновить";
+          }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadIngredients();
+        loadInventory();
+        loadRecipes();
+
+        // Обработчик формы
+        document
+          .getElementById("add-inventory-form")
+          .addEventListener("submit", handleAddInventory);
+
+      window.scanReceipt = async function() {
+          const fileInput = document.getElementById('receipt-upload');
+          const statusDiv = document.getElementById('receipt-status');
+          const btn = document.getElementById('scan-receipt-btn');
+          
+          if (!fileInput.files || fileInput.files.length === 0) {
+              statusDiv.textContent = "Пожалуйста, выберите изображение.";
+              statusDiv.className = "status-msg error";
+              statusDiv.style.display = "block";
+              return;
+          }
+
+          const file = fileInput.files[0];
+          
+          btn.disabled = true;
+          btn.textContent = "Анализ (это может занять время)...";
+          statusDiv.style.display = "none";
+
+          try {
+              const reader = new FileReader();
+              reader.readAsDataURL(file);
+              reader.onload = async () => {
+                  const base64Image = reader.result;
+                  
+                  const res = await fetch('/api/ai/scan_receipt', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ base64Image })
+                  });
+                  
+                  if (!res.ok) {
+                      const errorData = await res.json();
+                      console.error("[FRONTEND] Ошибка от API:", errorData);
+                      throw new Error(errorData.error || "Ошибка при анализе фото");
+                  }
+                  
+                  const data = await res.json();
+                  console.log("[FRONTEND] ИИ вернул данные:", data);
+                  
+                  if (!data.items || data.items.length === 0) {
+                      throw new Error("ИИ не нашел продуктов на фото.");
+                  }
+                  
+                  statusDiv.textContent = `Распознано ${data.items.length} продуктов. Добавляем в инвентарь...`;
+                  statusDiv.className = "status-msg success";
+                  statusDiv.style.display = "block";
+                  
+                  const addRes = await fetch('/api/inventory/add_scanned', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ items: data.items })
+                  });
+                  
+                  if (!addRes.ok) throw new Error("Ошибка при добавлении в инвентарь");
+                  
+                  const addData = await addRes.json();
+                  statusDiv.textContent = addData.message || "Продукты успешно добавлены!";
+                  
+                  loadInventory();
+                  loadRecipes();
+                  loadIngredients(); // Обновляем список, если появились новые ингредиенты
+                  
+                  fileInput.value = "";
+                  btn.disabled = false;
+                  btn.textContent = "Распознать фото";
+              };
+              reader.onerror = () => {
+                  throw new Error("Не удалось прочитать файл");
+              };
+          } catch(e) {
+              statusDiv.textContent = e.message;
+              statusDiv.className = "status-msg error";
+              statusDiv.style.display = "block";
+              btn.disabled = false;
+              btn.textContent = "Распознать фото";
+          }
+      }
+
+        // Обработчики для кастомного поиска
+        const searchInput = document.getElementById("ingredient-input-search");
+
+        // Показать список при фокусе (первое открытие)
+        searchInput.addEventListener("focus", () =>
+          displayIngredients(null, searchInput.value)
+        );
+
+        // Фильтрация при вводе
+        searchInput.addEventListener("input", () => {
+          if (!isAddingNewIngredient) {
+            document.getElementById("ingredient-select-value").value = "";
+            document.getElementById("unit-display").textContent = "ед.";
+          }
+          displayIngredients(null, searchInput.value);
+        });
+
+        // Скрыть список при клике вне его (с небольшой задержкой)
+        document.addEventListener("click", (e) => {
+          const picker = document.querySelector(".ingredient-picker");
+          if (!picker.contains(e.target)) {
+            hideDropdown();
+          }
+        });
+      });
+
+      function showMsg(elId, text, isErr = false) {
+        const el = document.getElementById(elId);
+        el.textContent = text;
+        el.style.display = "block";
+        el.style.backgroundColor = isErr ? "#fbe5e5" : "#e8f5e9";
+        el.style.borderColor = isErr ? "#e57373" : "#4caf50";
+        setTimeout(() => (el.style.display = "none"), 5000);
+      }
+
+      function hideDropdown() {
+        document.getElementById("ingredient-dropdown").style.display = "none";
+      }
+
+
+
+      async function loadIngredients(selectName = null) {
+        try {
+          const res = await fetch("/api/ingredients");
+          const data = await res.json();
+
+          // 1. Сортировка ингредиентов по названию (алфавитный порядок)
+          allIngredients = data.sort((a, b) =>
+            a.name.localeCompare(b.name, "ru", { sensitivity: "base" })
+          );
+
+          // 2. Инициализация кастомного списка (заполняется только при фокусе/вводе)
+          // Если есть элемент для выбора (добавленный ИИ), находим его и устанавливаем
+          if (selectName) {
+            const selectedIng = allIngredients.find(
+              (ing) => ing.name === selectName
+            );
+            if (selectedIng) {
+              selectIngredient(
+                selectedIng.ingredient_id,
+                selectedIng.name,
+                selectedIng.unit_of_measure
+              );
+            }
+          }
+        } catch (err) {
+          console.error("Ошибка загрузки ингредиентов:", err);
+          document.getElementById("ingredient-input-search").placeholder =
+            "-- Ошибка загрузки --";
+        }
+      }
+
+      // Функция для отображения и фильтрации кастомного списка
+      function displayIngredients(selectName = null, filterQuery = "") {
+        const dropdown = document.getElementById("ingredient-dropdown");
+        filterQuery = filterQuery.toLowerCase().trim();
+        dropdown.innerHTML = "";
+
+        if (allIngredients.length === 0) {
+          dropdown.innerHTML =
+            '<div class="dropdown-item">Нет доступных ингредиентов.</div>';
+          dropdown.style.display = "block";
+          return;
+        }
+
+        const filteredIngredients = allIngredients.filter((ing) =>
+          ing.name.toLowerCase().includes(filterQuery)
+        );
+
+        if (filteredIngredients.length === 0) {
+          dropdown.innerHTML =
+            '<div class="dropdown-item">Ничего не найдено.</div>';
+          dropdown.style.display = "block";
+          return;
+        }
+
+        filteredIngredients.forEach((ing) => {
+          const item = document.createElement("div");
+          item.classList.add("dropdown-item");
+          item.textContent = `${ing.name} (${ing.unit_of_measure})`;
+          item.dataset.id = ing.ingredient_id;
+          item.dataset.unit = ing.unit_of_measure;
+          item.dataset.name = ing.name;
+
+          item.addEventListener("mousedown", (e) => {
+            e.preventDefault(); // Предотвращаем потерю фокуса с инпута слишком рано
+            selectIngredient(ing.ingredient_id, ing.name, ing.unit_of_measure);
+            hideDropdown();
+          });
+
+          dropdown.appendChild(item);
+        });
+
+        // Добавляем пункт "не нашли нужный?"
+        const notFoundItem = document.createElement("div");
+        notFoundItem.classList.add("dropdown-item");
+        notFoundItem.style.fontWeight = "bold";
+        notFoundItem.style.color = "var(--color-accent-primary)";
+        notFoundItem.style.borderTop = "2px solid var(--color-accent-primary)";
+        notFoundItem.textContent = "Не нашли нужный?";
+        notFoundItem.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          toggleNewIngredientMode(true);
+          hideDropdown();
+        });
+        dropdown.appendChild(notFoundItem);
+
+        // Показать список
+        dropdown.style.display = "block";
+      }
+
+      // Функция для выбора ингредиента из кастомного списка
+      function selectIngredient(id, name, unit) {
+        if (isAddingNewIngredient) {
+            toggleNewIngredientMode(false);
+        }
+        document.getElementById("ingredient-input-search").value = name;
+        document.getElementById("ingredient-select-value").value = id;
+        document.getElementById("unit-display").textContent = unit;
+        // Убираем подсветку со всех элементов, если они были
+        document
+          .querySelectorAll(".dropdown-item")
+          .forEach((el) => el.classList.remove("selected"));
+        // Подсвечиваем выбранный элемент
+        const selectedItem = document.querySelector(
+          `.dropdown-item[data-id="${id}"]`
+        );
+        if (selectedItem) {
+          selectedItem.classList.add("selected");
+        }
+      }
+
+      function updateUnit() {
+        // Эта функция больше не используется
+      }
+
+      async function handleAddInventory(e) {
+        e.preventDefault();
+
+        if (isAddingNewIngredient) {
+            const input = document.getElementById("ingredient-input-search").value.trim();
+            if (!input) return showMsg("inventory-status", "Введите название продукта.", true);
+
+            const regex = /^[А-Яа-яЁё\s\-]+$/;
+            if (!regex.test(input)) {
+                return showMsg("inventory-status", "Пожалуйста, используйте только русские буквы.", true);
+            }
+
+            try {
+                const res = await fetch("/api/ai/standardize_ingredient", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ rawInput: input }),
+                });
+                const data = await res.json();
+                if (!res.ok || (data.error && data.error.trim() !== "")) throw new Error(data.error || "Ошибка стандартизации.");
+
+                const addRes = await fetch("/api/ingredients/add_from_ai", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
+                const addData = await addRes.json();
+
+                if (addRes.ok) {
+                    showMsg("inventory-status", `${data.name} теперь можно найти в списке!`, false);
+                    toggleNewIngredientMode(false);
+                    await loadIngredients();
+                } else {
+                    throw new Error(addData.error || "Ошибка добавления.");
+                }
+            } catch (err) {
+                showMsg("inventory-status", err.message, true);
+            }
+            return;
+        }
+
+        // Используем ID из скрытого поля
+        const ingredientId = document.getElementById(
+          "ingredient-select-value"
+        ).value;
+        const qty = document.getElementById("quantity").value;
+        const exp = document.getElementById("expiration-date").value;
+
+        if (!ingredientId || !qty)
+          return showMsg(
+            "inventory-status",
+            "Выберите ингредиент и заполните количество.",
+            true
+          );
+
+        try {
+          const res = await fetch("/api/inventory/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ingredient_id: parseInt(ingredientId),
+              quantity: parseFloat(qty),
+              best_before_date: exp || null,
+            }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showMsg("inventory-status", data.message, false);
+            document.getElementById("quantity").value = "";
+            document.getElementById("expiration-date").value = "";
+            // Сброс выбора
+            document.getElementById("ingredient-input-search").value = "";
+            document.getElementById("ingredient-select-value").value = "";
+            document.getElementById("unit-display").textContent = "ед.";
+
+            loadInventory();
+            loadRecipes();
+          } else {
+            if (res.status === 401) {
+              throw new Error("Необходима авторизация для добавления.");
+            }
+            throw new Error(data.error || "Ошибка сервера.");
+          }
+        } catch (err) {
+          showMsg("inventory-status", err.message, true);
+        }
+      }
+
+      async function loadInventory() {
+        const tbody = document.getElementById("inventory-list");
+        tbody.innerHTML = '<tr><td colspan="5">Загрузка...</td></tr>';
+
+        try {
+          const res = await fetch(`/api/inventory`);
+          const data = await res.json();
+
+          if (res.status === 401) {
+            tbody.innerHTML =
+              '<tr><td colspan="5">Необходима авторизация.</td></tr>';
+            return;
+          }
+
+          originalData = JSON.parse(JSON.stringify(data));
+
+          tbody.innerHTML = "";
+          if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">Запасы пусты.</td></tr>';
+            return;
+          }
+
+          data.forEach((item, i) => {
+            const row = tbody.insertRow();
+            
+            // Проверка на просрочку
+            let isExpired = false;
+            if (item.best_before_date) {
+                // Сравниваем только даты, без учета времени
+                const bestBefore = new Date(item.best_before_date);
+                bestBefore.setHours(0, 0, 0, 0);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                if (bestBefore < today) {
+                    isExpired = true;
+                    row.style.backgroundColor = '#ffebee';
+                }
+            }
+
+            row.dataset.id = item.inventory_id;
+            row.dataset.ingId = item.ingredient_id;
+            row.dataset.index = i;
+
+            // Если продукт просрочен, добавляем иконку/текст
+            row.insertCell().innerHTML = isExpired ? `${item.ingredient_name} <span style="color: red; font-size: 0.8em;">(Просрочено)</span>` : item.ingredient_name;
+
+            const qtyCell = row.insertCell();
+            qtyCell.innerHTML = `<input type="number" value="${parseFloat(
+              item.quantity
+            ).toFixed(2)}" min="0" step="0.01" data-field="quantity" class="form-control form-control-sm" disabled>`;
+
+            row.insertCell().textContent = item.unit_of_measure;
+
+            const dateCell = row.insertCell();
+            const expDate = item.best_before_date
+              ? new Date(item.best_before_date).toISOString().split("T")[0]
+              : "";
+            dateCell.innerHTML = `<input type="date" value="${expDate}" data-field="expiration_date" class="form-control form-control-sm" disabled>`;
+
+            const actCell = row.insertCell();
+            actCell.innerHTML = `<button class="btn btn-danger" onclick="deleteItem(${item.inventory_id})">Удалить</button>`;
+          });
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="5">Ошибка загрузки.</td></tr>';
+          console.error("Ошибка загрузки инвентаря:", err);
+        }
+      }
+
+      function toggleEditMode() {
+        isEditMode = !isEditMode;
+        const editBtn = document.getElementById("edit-btn");
+        const saveBtn = document.getElementById("save-btn");
+        const inputs = document.querySelectorAll("#inventory-list input");
+
+        if (isEditMode) {
+          editBtn.textContent = "Отменить";
+          saveBtn.style.display = "inline-block";
+          inputs.forEach((inp) => (inp.disabled = false));
+        } else {
+          editBtn.textContent = "Редактировать";
+          saveBtn.style.display = "none";
+          inputs.forEach((inp) => {
+            inp.disabled = true;
+            const row = inp.closest("tr");
+            const idx = row.dataset.index;
+            if (originalData[idx]) {
+              if (inp.dataset.field === "quantity") {
+                inp.value = parseFloat(originalData[idx].quantity).toFixed(2);
+              } else if (inp.dataset.field === "expiration_date") {
+                const date = originalData[idx].best_before_date
+                  ? new Date(originalData[idx].best_before_date)
+                      .toISOString()
+                      .split("T")[0]
+                  : "";
+                inp.value = date;
+              }
+            }
+          });
+          loadInventory();
+        }
+      }
+
+      async function saveChanges() {
+        const changes = [];
+        document
+          .querySelectorAll("#inventory-list tr[data-id]")
+          .forEach((row) => {
+            const id = parseInt(row.dataset.id);
+            const orig = originalData.find((item) => item.inventory_id === id);
+            if (!orig) return;
+
+            const qtyInp = row.querySelector('input[data-field="quantity"]');
+            const dateInp = row.querySelector(
+              'input[data-field="expiration_date"]'
+            );
+            const newQty = parseFloat(qtyInp.value);
+            const newDate = dateInp.value || null;
+
+            const oldDate = orig.best_before_date
+              ? new Date(orig.best_before_date).toISOString().split("T")[0]
+              : null;
+
+            if (newQty !== parseFloat(orig.quantity) || newDate !== oldDate) {
+              changes.push({
+                inventory_id: id,
+                ingredient_id: parseInt(row.dataset.ingId),
+                quantity: newQty,
+                best_before_date: newDate,
+              });
+            }
+          });
+
+        if (changes.length === 0) {
+          showMsg("inventory-status", "Нет изменений.", false);
+          toggleEditMode();
+          return;
+        }
+
+        try {
+          const res = await fetch("/api/inventory/update_batch", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ changes }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showMsg("inventory-status", "Изменения сохранены!", false);
+            loadInventory();
+            loadRecipes();
+            toggleEditMode();
+          } else {
+            if (res.status === 401) {
+              throw new Error("Необходима авторизация для сохранения.");
+            }
+            throw new Error(data.error || "Ошибка сервера.");
+          }
+        } catch (err) {
+          showMsg("inventory-status", err.message, true);
+        }
+      }
+
+      async function deleteItem(id) {
+        if (!confirm("Удалить этот ингредиент из запасов?")) return;
+
+        try {
+          const res = await fetch(`/api/inventory/${id}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+          });
+          const data = await res.json();
+          if (res.ok) {
+            showMsg("inventory-status", "Ингредиент удален.", false);
+            loadInventory();
+            loadRecipes();
+          } else {
+            if (res.status === 401) {
+              throw new Error("Необходима авторизация для удаления.");
+            }
+            throw new Error(data.error || "Ошибка сервера.");
+          }
+        } catch (err) {
+          showMsg("inventory-status", err.message, true);
+        }
+      }
+
+      async function loadRecipes() {
+        const div = document.getElementById("available-recipes");
+        div.innerHTML = "Загрузка...";
+        const apiUrl = `/api/recipes/available`;
+
+        console.log(`[CLIENT] Начинается запрос к API: ${apiUrl}`);
+
+        try {
+          const res = await fetch(apiUrl);
+
+          console.log(`[CLIENT] Получен ответ. Статус: ${res.status}`);
+
+          if (!res.ok && res.status !== 401) {
+            const errorText = await res.text();
+            console.error(
+              `[CLIENT] API вернул ошибку (Статус ${res.status}): ${errorText}`
+            );
+            div.textContent = `Ошибка сервера: Статус ${res.status}. Смотрите консоль для деталей.`;
+            return;
+          }
+
+          if (res.status === 401) {
+            console.log("[CLIENT] Пользователь не авторизован (Статус 401).");
+            div.textContent = "Авторизуйтесь, чтобы увидеть доступные рецепты.";
+            return;
+          }
+
+          const data = await res.json();
+          console.log(
+            "[CLIENT] Успешно получен JSON. Количество рецептов:",
+            data.length
+          );
+
+          div.innerHTML = "";
+          if (data.length === 0) {
+            div.textContent = "Нет доступных рецептов.";
+            return;
+          }
+
+          data.forEach((recipe) => {
+            const item = document.createElement("div");
+            const link = document.createElement("a");
+            link.href = `/api/recipe_detail/${recipe.recipe_id}`;
+            link.textContent = recipe.title;
+            item.appendChild(link);
+            div.appendChild(item);
+          });
+        } catch (err) {
+          console.error(
+            "[CLIENT] КРИТИЧЕСКАЯ СЕТЕВАЯ ОШИБКА (Запрос не дошел до сервера или Connection Refused):",
+            err
+          );
+          div.textContent =
+            "Ошибка загрузки рецептов (проверьте, запущен ли сервер).";
+        }
+      }
+    </script>
+  </body>
+</html>

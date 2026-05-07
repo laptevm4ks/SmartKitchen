@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Обратная связь</title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      .message { padding: 15px; margin-bottom: 15px; border-radius: 12px; font-weight: 600; }
+      .error { background-color: #ffebee; color: #c62828; border: 1px solid #ef5350; }
+      .success { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #4caf50; }
+    </style>
+  </head>
+  <body>
+    <%- include('partials/header', { showBackButton: true, title: 'Обратная связь' }) %>
+    <div class="app-container">
+    <div class="glass-panel" style="max-width: 600px; margin: 40px auto;">
+      <% if (locals.error) { %>
+      <div class="message error"><%= error %></div>
+      <% } %> 
+      <% if (locals.success) { %>
+      <div class="message success"><%= success %></div>
+      <% } %>
+
+      <form action="/api/create_feedback" method="POST" style="background: transparent; box-shadow: none; border: none; padding: 0; margin: 0;">
+        <div>
+          <label for="subject">Тема:</label>
+          <input
+            type="text"
+            id="subject"
+            name="subject"
+            class="form-control"
+            required
+            value="<%= locals.subject ? subject : '' %>"
+          />
+        </div>
+
+        <div>
+          <label for="message">Сообщение:</label>
+          <textarea id="message" name="message" class="form-control" rows="8" required><%= locals.message ? message : '' %></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Отправить отчет</button>
+      </form>
+    </div>
+  </div>
+  </body>
+</html>

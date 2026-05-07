@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Генератор Рецептов | Умная Кухня</title>
+  <link rel="stylesheet" href="/style.css">
+  <%- include('_pwa_head') %>
+  <style>
+    .selection-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .selection-layout { grid-template-columns: 1fr; }
+    }
+
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .column-header h3 {
+      font-family: 'Caveat', cursive;
+      font-size: 2rem;
+      color: var(--color-text-main);
+      margin: 0;
+    }
+
+    .scroll-container {
+      height: 450px;
+      overflow-y: auto;
+      padding-right: 10px;
+      border: 2px dashed var(--color-bg-accent);
+      border-radius: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .ingredient-card {
+      background: white;
+      border: 2px solid var(--color-bg-accent);
+      border-radius: 15px;
+      padding: 12px 18px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ingredient-card:hover {
+      border-color: var(--color-accent-primary);
+      transform: translateX(5px);
+      box-shadow: 4px 4px 0px var(--color-accent-secondary);
+    }
+
+    .ingredient-card.expiring {
+      border-left: 6px solid #ef5350;
+    }
+
+    .ingredient-card .info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ingredient-card .name {
+      font-weight: 700;
+      color: var(--color-text-main);
+    }
+
+    .ingredient-card .quantity {
+      font-size: 0.85rem;
+      color: #795548;
+    }
+
+    .ingredient-card .badge {
+      font-size: 0.7rem;
+      background: #ffebee;
+      color: #c62828;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+      margin-top: 4px;
+      width: fit-content;
+    }
+
+    .selected-card {
+      background: var(--color-accent-primary);
+      color: white;
+      border-color: var(--color-text-main);
+      box-shadow: 3px 3px 0px var(--color-text-main);
+    }
+
+    .selected-card .name, .selected-card .quantity {
+      color: white;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #a1887f;
+      font-style: italic;
+    }
+
+    #search-input {
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+      padding: 15px 25px;
+      border-radius: 30px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+    }
+
+    #generated-recipe-output {
+      margin-top: 40px;
+      border-top: 4px dashed var(--color-bg-accent);
+      padding-top: 30px;
+    }
+    .warning-box {
+      background: #fff3e0;
+      border: 2px solid #ffb74d;
+      color: #e65100;
+      padding: 15px;
+      border-radius: 15px;
+      margin: 15px 0;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <%- include('partials/header', { showBackButton: true, title: 'Генератор Рецептов' }) %>
+
+  <div class="app-container">
+    <div class="glass-panel">
+      <div class="column-header" style="margin-bottom: 25px;">
+          <div>
+            <h2 style="border:none; text-shadow:none; padding-bottom:0; margin:0;">Создание рецепта по инвентарю</h2>
+            <p style="margin-top:5px; color: #795548;">Выберите продукты, которые хотите использовать, и ИИ предложит лучшее блюдо.</p>
+          </div>
+      </div>
+
+      <input type="text" id="search-input" class="form-control" placeholder="🔍 Быстрый поиск ингредиентов в запасах..." oninput="filterInventory()">
+
+      <div class="selection-layout">
+        <!-- Левая колонка: Доступные -->
+        <div class="inventory-section">
+          <div class="column-header">
+            <h3>В наличии</h3>
+            <span id="available-count" style="font-size: 0.9rem; font-weight: 700; background: var(--color-bg-accent); padding: 4px 12px; border-radius: 20px;">0</span>
+          </div>
+          <div id="available-container" class="scroll-container">
+            <div class="empty-state">Загрузка...</div>
+          </div>
+        </div>
+
+        <!-- Правая колонка: Выбранные -->
+        <div class="selected-section">
+          <div class="column-header">
+            <h3>Выбрано для рецепта</h3>
+            <button class="btn btn-secondary" onclick="clearSelection()" style="padding: 4px 12px; font-size: 0.8rem; height: auto;">Очистить всё</button>
+          </div>
+          <div id="selected-container" class="scroll-container">
+            <div class="empty-state">Пока ничего не выбрано</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button id="generate-btn" class="btn btn-primary" onclick="generateRecipe()" style="flex: 2; font-size: 1.2rem; padding: 15px;">
+          🪄 Сгенерировать Рецепт
+        </button>
+      </div>
+    </div>
+
+    <div id="recipe-result-panel" class="glass-panel" style="display: none;">
+      <div class="column-header">
+        <h2 style="border:none; text-shadow:none; padding-bottom:0;">Результат генерации</h2>
+        <button id="save-btn" class="btn btn-secondary" onclick="saveRecipe()" style="background-color: #4caf50; border-color: #2e7d32; box-shadow: 4px 6px 0px #2e7d32;">
+          💾 Сохранить в книгу
+        </button>
+      </div>
+      <div id="status-message" class="status-msg"></div>
+      <div id="generated-recipe-output">
+        <!-- Содержимое рецепта -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let userInventory = [];
+    let selectedIds = new Set();
+    let lastGeneratedRecipe = null;
+
+    document.addEventListener("DOMContentLoaded", loadInventory);
+
+    function showMessage(text, type = "info") {
+      const el = document.getElementById("status-message");
+      el.textContent = text;
+      el.className = `status-msg ${type}`;
+      el.style.display = "block";
+    }
+
+    async function loadInventory() {
+      try {
+        const response = await fetch(`/api/inventory`);
+        const inventory = await response.json();
+
+        if (response.status === 401) {
+          document.getElementById("available-container").innerHTML = '<div class="empty-state">Необходима авторизация.</div>';
+          return;
+        }
+
+        // Фильтруем просроченные продукты
+        userInventory = inventory.filter((item) => {
+          if (!item.best_before_date) return true;
+          const bestBefore = new Date(item.best_before_date);
+          bestBefore.setHours(0, 0, 0, 0);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return bestBefore >= today;
+        }).sort((a, b) => {
+            // Сначала те, у которых есть дата, и они ближе к просрочке
+            if (!a.best_before_date) return 1;
+            if (!b.best_before_date) return -1;
+            return new Date(a.best_before_date) - new Date(b.best_before_date);
+        });
+
+        renderInventory();
+      } catch (error) {
+        console.error("Ошибка при загрузке инвентаря:", error);
+        document.getElementById("available-container").innerHTML = '<div class="empty-state">Ошибка загрузки.</div>';
+      }
+    }
+
+    function renderInventory() {
+      const availableContainer = document.getElementById("available-container");
+      const selectedContainer = document.getElementById("selected-container");
+      const searchVal = document.getElementById("search-input").value.toLowerCase();
+      
+      const availableItems = userInventory.filter(item => !selectedIds.has(item.inventory_id) && item.ingredient_name.toLowerCase().includes(searchVal));
+      const selectedItems = userInventory.filter(item => selectedIds.has(item.inventory_id));
+
+      document.getElementById("available-count").textContent = availableItems.length;
+
+      // Render Available
+      if (availableItems.length === 0) {
+        availableContainer.innerHTML = `<div class="empty-state">${searchVal ? 'Ничего не найдено' : 'Нет доступных продуктов'}</div>`;
+      } else {
+        availableContainer.innerHTML = availableItems.map(item => createCard(item, false)).join('');
+      }
+
+      // Render Selected
+      if (selectedItems.length === 0) {
+        selectedContainer.innerHTML = '<div class="empty-state">Нажмите на продукт слева, чтобы добавить его</div>';
+      } else {
+        selectedContainer.innerHTML = selectedItems.map(item => createCard(item, true)).join('');
+      }
+    }
+
+    function createCard(item, isSelected) {
+      const today = new Date();
+      const bestBefore = item.best_before_date ? new Date(item.best_before_date) : null;
+      const diffDays = bestBefore ? Math.ceil((bestBefore - today) / (1000 * 60 * 60 * 24)) : null;
+      const isExpiringSoon = diffDays !== null && diffDays <= 3;
+
+      return `
+        <div class="ingredient-card ${isExpiringSoon ? 'expiring' : ''} ${isSelected ? 'selected-card' : ''}" onclick="toggleSelection(${item.inventory_id})">
+          <div class="info">
+            <span class="name">${item.ingredient_name}</span>
+            <span class="quantity">${parseFloat(item.quantity).toFixed(0)} ${item.unit_of_measure}</span>
+            ${isExpiringSoon ? `<span class="badge">Срок: ${diffDays < 0 ? 'Истек' : diffDays === 0 ? 'Сегодня' : diffDays + ' дн.'}</span>` : ''}
+          </div>
+          <div class="action-icon">${isSelected ? '✕' : '＋'}</div>
+        </div>
+      `;
+    }
+
+    function toggleSelection(id) {
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else selectedIds.add(id);
+      renderInventory();
+    }
+
+    function clearSelection() {
+      selectedIds.clear();
+      renderInventory();
+    }
+
+    function filterInventory() {
+      renderInventory();
+    }
+
+    function renderRecipe(recipeData) {
+      const output = document.getElementById("generated-recipe-output");
+      const instructionsHtml = recipeData.instructions.split("\n")
+        .filter(line => line.trim() !== "")
+        .map(line => `<li>${line.trim().replace(/^\d+\.\s*/, "")}</li>`)
+        .join("");
+
+      const ingredientsHtml = recipeData.ingredients.map(ing => `<li><strong>${ing.name}</strong>: ${ing.quantity ? parseFloat(ing.quantity).toFixed(2) : ""} ${ing.unit_of_measure || ""}</li>`).join("");
+
+      const warningHtml = recipeData.dietary_warning ? `<div class="warning-box">⚠️ ${recipeData.dietary_warning}</div>` : '';
+
+      output.innerHTML = `
+        <h3 style="font-size: 2rem; color: var(--color-accent-primary);">${recipeData.title}</h3>
+        ${warningHtml}
+        <p style="font-size: 1.1rem; font-style: italic; margin: 15px 0;">${recipeData.description || ""}</p>
+        
+        <div class="grid-3" style="margin: 20px 0;">
+            <div style="background: var(--color-highlight); padding: 10px; border-radius: 12px; border: 2px dashed var(--color-bg-accent); text-align: center;">
+                <strong>⏱ Подготовка:</strong><br>${recipeData.prep_time_min || 0} мин.
+            </div>
+            <div style="background: var(--color-highlight); padding: 10px; border-radius: 12px; border: 2px dashed var(--color-bg-accent); text-align: center;">
+                <strong>🍳 Готовка:</strong><br>${recipeData.cook_time_min || 0} мин.
+            </div>
+            <div style="background: var(--color-highlight); padding: 10px; border-radius: 12px; border: 2px dashed var(--color-bg-accent); text-align: center;">
+                <strong>🍽 Порций:</strong><br>${recipeData.servings || 1}
+            </div>
+        </div>
+
+        <div style="margin-top: 25px;">
+            <h3 style="font-family: 'Caveat', cursive; font-size: 2.2rem; border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Необходимые ингредиенты</h3>
+            <ul class="styled-list">${ingredientsHtml}</ul>
+        </div>
+
+        <div style="margin-top: 25px;">
+            <h3 style="font-family: 'Caveat', cursive; font-size: 2.2rem; border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Инструкция по шагам</h3>
+            <ol class="styled-list">${instructionsHtml}</ol>
+        </div>
+      `;
+    }
+
+    async function generateRecipe() {
+      if (selectedIds.size === 0) {
+        alert("Выберите хотя бы один ингредиент!");
+        return;
+      }
+
+      const generateBtn = document.getElementById("generate-btn");
+      const resultPanel = document.getElementById("recipe-result-panel");
+      const output = document.getElementById("generated-recipe-output");
+      const saveBtn = document.getElementById("save-btn");
+
+      const selectedNames = userInventory
+        .filter(item => selectedIds.has(item.inventory_id))
+        .map(item => item.ingredient_name);
+
+      generateBtn.disabled = true;
+      generateBtn.textContent = "✨ Колдуем над рецептом...";
+      resultPanel.style.display = "block";
+      output.innerHTML = '<div class="empty-state"><img src="https://i.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJndXp4bmZyYXh4eGZyeGZyeGZyeGZyeGZyeGZyeGZyeGZyeGZyeCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7bu3XilJ5BOiSGic/giphy.gif" width="100" style="display:block; margin: 0 auto 20px;"><p>Шеф-повар ИИ придумывает идеальное сочетание...</p></div>';
+      saveBtn.style.display = "none";
+      
+      // Scroll to result
+      resultPanel.scrollIntoView({ behavior: 'smooth' });
+
+      try {
+        const response = await fetch("/api/ai/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventoryList: selectedNames }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.generatedRecipe) {
+          lastGeneratedRecipe = result.generatedRecipe;
+          renderRecipe(lastGeneratedRecipe);
+          saveBtn.style.display = "block";
+        } else {
+          output.innerHTML = `<div class="empty-state">Ошибка: ${result.error || 'Не удалось сгенерировать рецепт'}</div>`;
+        }
+      } catch (error) {
+        output.innerHTML = '<div class="empty-state">Ошибка соединения с сервером.</div>';
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = "🪄 Сгенерировать Рецепт";
+      }
+    }
+
+    async function saveRecipe() {
+      const saveBtn = document.getElementById("save-btn");
+      if (!lastGeneratedRecipe) return;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "💾 Сохранение...";
+
+      try {
+        const response = await fetch("/api/recipes/save_generated", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recipe: lastGeneratedRecipe }),
+        });
+
+        if (response.ok) {
+          showMessage("Рецепт успешно сохранен в вашу книгу!", "success");
+          saveBtn.style.display = "none";
+        } else {
+          const res = await response.json();
+          showMessage("Ошибка: " + res.error, "error");
+        }
+      } catch (error) {
+        showMessage("Ошибка сети при сохранении", "error");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "💾 Сохранить в книгу";
+      }
+    }
+  </script>
+</body>
+</html>

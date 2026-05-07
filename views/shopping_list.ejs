@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <title><%= list.list_name %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      .status-purchased {
+        color: #2e7d32;
+        font-weight: 700;
+        background-color: #e8f5e9;
+        padding: 8px 15px;
+        border-radius: 15px 8px 20px 10px;
+        border: 2px solid #4caf50;
+        display: inline-block;
+      }
+      .status-pending {
+        color: #c62828;
+        font-weight: 700;
+        background-color: #ffebee;
+        padding: 8px 15px;
+        border-radius: 15px 8px 20px 10px;
+        border: 2px solid #ef5350;
+        display: inline-block;
+      }
+      @media (max-width: 768px) {
+        .styled-list li { flex-direction: column; align-items: flex-start; gap: 15px; padding: 20px; }
+        .styled-list li span { margin-left: 0; align-self: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="main-header">
+      <a href="/dashboard" class="logo">Умная Кухня</a>
+      <nav class="main-nav">
+        <a href="/api/plans">К планам</a>
+        <a href="/dashboard">В меню</a>
+      </nav>
+    </header>
+    <div class="app-container">
+      <div class="glass-panel">
+        <h1 style="border:none; text-shadow:none; padding-bottom:0;">🛒 <%= list.list_name %></h1>
+        <p style="font-size: 1.2rem; margin: 10px 0 30px; padding: 15px 20px; background: white; border: 2px solid var(--color-bg-accent); border-radius: 20px 10px 25px 15px; display: inline-block; box-shadow: 3px 5px 15px rgba(93, 64, 55, 0.08);">Создан: <strong><%= list.created_at.toLocaleDateString() %></strong></p>
+
+        <h2 style="font-family: 'Caveat', cursive; font-size: 2.5rem; color: var(--color-text-main); border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Что Нужно Купить</h2>
+        <% if (items && items.length > 0) { %>
+        <ul class="styled-list" style="margin-bottom: 20px;">
+          <% items.forEach(item => { %>
+          <li style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 1.2rem; font-weight: 600;"><%= item.item_name %>:</span>
+            <span class="<%= item.is_purchased ? 'status-purchased' : 'status-pending' %>">
+              <%= item.quantity %> <%= item.unit_of_measure %>
+            </span>
+            <span style="color: var(--color-accent-primary); font-weight: bold;"><%= item.is_purchased ? '(Куплено)' : '' %></span>
+          </li>
+          <% }); %>
+        </ul>
+        <% } else { %>
+        <p style="text-align: center; font-size: 1.2rem; color: var(--color-text-main);">Список пуст!</p>
+        <% } %>
+
+        <a href="/api/plans" class="btn btn-secondary" style="width: 100%; text-align: center;">Вернуться к планам меню</a>
+      </div>
+    </div>
+  </body>
+</html>

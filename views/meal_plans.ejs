@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <title>Мои Планы Меню</title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      .styled-list li { display: flex; justify-content: space-between; align-items: center; }
+      @media (max-width: 768px) {
+        .styled-list li { flex-direction: column; align-items: stretch; }
+        .styled-list li a { text-align: center; margin-bottom: 10px; }
+        .styled-list li button { width: 100%; margin-left: 0; margin-top: 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('partials/header', { showBackButton: true, title: 'Мои Планы Меню' }) %>
+    <div class="app-container">
+      <div class="glass-panel" style="max-width: 600px; margin: 0 auto 40px auto;">
+        <h2 style="font-family: 'Caveat', cursive; font-size: 2.5rem; color: var(--color-text-main); border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Создать Новый План</h2>
+
+        <form action="/api/plans/new" method="POST" style="background: transparent; box-shadow: none; border: none; padding: 0; margin: 0;">
+          <label for="plan_name">Название:</label>
+          <input type="text" id="plan_name" name="plan_name" class="form-control" required /><br />
+
+          <div class="grid-2">
+            <div>
+              <label for="start_date">Начало:</label>
+              <input type="date" id="start_date" name="start_date" class="form-control" required />
+            </div>
+            <div>
+              <label for="end_date">Конец:</label>
+              <input type="date" id="end_date" name="end_date" class="form-control" required />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Создать План</button>
+        </form>
+      </div>
+
+      <div class="glass-panel">
+        <h2 style="font-family: 'Caveat', cursive; font-size: 2.5rem; color: var(--color-text-main); border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Существующие Планы</h2>
+    <% if (plans && plans.length > 0) { %>
+    <ul class="styled-list">
+      <% plans.forEach(plan => { %>
+      <li>
+        <div>
+          <a href="/api/plans/<%= plan.plan_id %>" style="color: var(--color-accent-primary); text-decoration: none; font-weight: 600; font-size: 1.2rem; border-bottom: 2px dashed var(--color-accent-primary); padding-bottom: 3px;">
+            <%= plan.plan_name %> (<%= plan.start_date.toLocaleDateString() %> -
+            <%= plan.end_date.toLocaleDateString() %>)
+          </a>
+        </div>
+        <button
+          class="btn btn-danger"
+          onclick="deletePlan('<%= plan.plan_id %>')"
+          title="Удалить этот план меню"
+        >
+          Удалить
+        </button>
+      </li>
+      <% }); %>
+    </ul>
+    <% } else { %>
+    <p style="text-align: center; font-size: 1.2rem; color: var(--color-text-main);">У вас пока нет планов. Создайте первый!</p>
+    <% } %>
+      </div>
+    </div>
+
+    <script>
+      async function deletePlan(planId) {
+        if (!confirm(`Вы уверены, что хотите удалить план ID: ${planId}? Это действие необратимо и удалит все связанные блюда и списки покупок.`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/plans/${planId}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            alert("✅ План меню успешно удален!");
+            window.location.reload();
+          } else {
+            alert(`❌ Ошибка удаления: ${result.error || "Неизвестная ошибка."}`);
+          }
+        } catch (error) {
+          console.error("Ошибка сети при удалении:", error);
+          alert("❌ Критическая ошибка сети или сервера при удалении плана.");
+        }
+      }
+    </script>
+  </body>
+</html>

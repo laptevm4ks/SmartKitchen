@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      .delete-link {
+        position: absolute; top: 15px; right: 20px; font-size: 0.9rem; font-weight: 600; color: var(--color-delete-btn);
+        cursor: pointer; text-decoration: none; border-bottom: 1px dotted var(--color-delete-btn); padding: 5px;
+        background-color: transparent; transition: all 0.2s; border-radius: 5px; z-index: 10;
+      }
+      .delete-link:hover { color: white; background-color: var(--color-delete-btn); border-bottom: 1px solid transparent; }
+      .recipe-link { color: var(--color-accent-primary); text-decoration: none; font-weight: 700; border-bottom: 2px dashed var(--color-accent-primary); padding-bottom: 2px; transition: all 0.3s ease; font-size: 1.4rem;}
+      .recipe-link:hover { color: var(--color-accent-secondary); border-bottom-style: solid; }
+    </style>
+  </head>
+  <body>
+    <%- include('partials/header', { showBackButton: true, extraLinks: [{ href: '/api/recipes/new', text: 'Новый рецепт' }] }) %>
+    <div class="app-container">
+      <div class="glass-panel">
+        <% if (recipes && recipes.length > 0) { %>
+        <ul id="recipes-list" class="styled-list">
+          <% recipes.forEach(recipe => { %>
+          <li data-recipe-id="<%= recipe.id %>" style="display:block; position:relative;">
+            <a
+              href="#"
+              class="delete-link"
+              onclick="deleteRecipe('<%= recipe.id %>'); return false;"
+              title="Удалить этот рецепт"
+            >Удалить</a>
+
+            <a href="/api/recipes/view/<%= recipe.id %>" class="recipe-link">
+              <%= recipe.title %>
+            </a>
+            <p style="margin-top:10px; font-style:italic;"><%= recipe.description %></p>
+            <div style="margin-top: 15px; padding-top: 10px; border-top: 2px dashed rgba(230, 213, 195, 0.5); font-size: 0.9rem; color: #a1887f;">
+              Дата создания: <%= new Date(recipe.created_at).toLocaleDateString() %>
+            </div>
+          </li>
+          <% }); %>
+        </ul>
+        <% } else { %>
+        <p style="text-align: center;">У вас пока нет сохраненных рецептов.</p>
+        <div style="text-align: center; margin-top:20px;">
+          <a href="/api/recipes/new" class="btn btn-primary">Добавить первый рецепт</a>
+        </div>
+        <% } %>
+      </div>
+    </div>
+
+    <script>
+      async function deleteRecipe(recipeId) {
+        if (!confirm("Вы уверены, что хотите безвозвратно удалить этот рецепт?")) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/recipes/delete/${recipeId}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (response.ok) {
+            alert("Рецепт успешно удален.");
+            const listItem = document.querySelector(`li[data-recipe-id="${recipeId}"]`);
+            if (listItem) {
+              listItem.remove();
+            }
+            const list = document.getElementById("recipes-list");
+            if (list && list.children.length === 0) {
+              window.location.reload();
+            }
+          } else {
+            const errorData = await response.json();
+            alert(`Не удалось удалить рецепт: ${errorData.error || response.statusText}`);
+          }
+        } catch (error) {
+          console.error("Ошибка при выполнении DELETE запроса:", error);
+          alert("Произошла ошибка сети или сервера при удалении.");
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ: Отчет #<%- report.report_id %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+        .report-details, .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--color-bg-accent);
+            border-radius: 10px;
+        }
+        .report-details h3 {
+            border-bottom: 2px solid var(--color-accent-secondary);
+            padding-bottom: 5px;
+            margin-top: 0;
+            color: var(--color-text-main);
+        }
+        .user-message {
+            background-color: var(--color-highlight);
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap; 
+        }
+        .message {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-weight: 600;
+            border: 1px solid;
+        }
+        .success { background-color: #ddffdd; color: #43a047; border-color: #43a047; }
+        .error { background-color: #ffdddd; color: #e53935; border-color: #e53935; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+      <a href="/admin_dashboard" class="logo">Умная Кухня (Админ)</a>
+      <nav class="main-nav">
+        <a href="/admin_dashboard/feedback">Все отчеты</a>
+      </nav>
+    </header>
+    <div class="app-container">
+    <div class="glass-panel" style="max-width: 800px; margin: 0 auto;">
+        <h1 style="border:none; text-shadow:none; padding-bottom:0;">Отчет #<%- report.report_id %></h1>
+        
+        <% if (locals.success) { %>
+            <div class="message success"><%- success %></div>
+        <% } %>
+        <% if (locals.error) { %>
+            <div class="message error"><%- error %></div>
+        <% } %>
+
+        <div class="report-details">
+            <h3>Отчет от пользователя: <strong><%- report.username %></strong> (<%- report.email %>)</h3>
+            <p><strong>Тема:</strong> <%- report.subject %></p>
+            <p><strong>Создан:</strong> <%- new Date(report.created_at).toLocaleString('ru-RU') %></p>
+            <p><strong>Последнее обновление:</strong> <%- new Date(report.updated_at).toLocaleString('ru-RU') %></p>
+            
+            <hr>
+            
+            <h3>Сообщение:</h3>
+            <div class="user-message">
+                <%- report.message %>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <form action="/admin_dashboard/feedback/<%- report.report_id %>/edit" method="POST" style="background: transparent; box-shadow: none; border: none; padding: 0; margin: 0;">
+                
+                <label for="status" style="display: block; margin-bottom: 8px; font-weight: 700;">Изменить статус:</label>
+                <select id="status" name="status" class="form-control" required>
+                    <% ['Новый', 'В работе', 'Решено', 'Отклонен'].forEach(s => { %>
+                        <option value="<%- s %>" <%= report.status === s ? 'selected' : '' %>>
+                            <%- s %>
+                        </option>
+                    <% }); %>
+                </select>
+
+                <label for="admin_response" style="display: block; margin-bottom: 8px; font-weight: 700;">Ответ пользователю (необязательно):</label>
+                <textarea id="admin_response" name="admin_response" class="form-control" rows="8"><%- report.admin_response ? report.admin_response.trim() : '' %></textarea>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Сохранить изменения и Ответить</button>
+            </form>
+        </div>
+    </div>
+  </div>
+</body>
+</html>

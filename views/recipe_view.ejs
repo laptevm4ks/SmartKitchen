@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %> | Просмотр</title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      #error-message {
+        background-color: #ffebee;
+        border: 3px solid #ef5350;
+        border-radius: 25px 12px 30px 18px;
+        padding: 25px;
+        margin: 30px 0;
+        color: #c62828;
+        font-weight: 600;
+        font-size: 1.2rem;
+        text-align: center;
+        box-shadow: 3px 5px 15px rgba(198, 40, 40, 0.1);
+      }
+      pre {
+        white-space: pre-wrap; word-wrap: break-word; font-family: "Nunito", sans-serif; font-size: 1.1rem; line-height: 1.8;
+        padding: 25px; background-color: var(--color-highlight); border: 2px dashed var(--color-bg-accent); border-radius: 25px 12px 30px 18px; margin: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <%- include('partials/header', { 
+      showBackButton: false, 
+      extraLinks: [
+        { href: '/api/recipes', text: 'К списку' },
+        { href: '/dashboard', text: 'В меню' }
+      ] 
+    }) %>
+    <div class="app-container">
+      <div class="glass-panel" id="recipe-container">
+        <div>Загрузка рецепта...</div>
+      </div>
+      <div id="error-message" style="display: none"></div>
+    </div>
+
+    <!-- Режим Шеф-повара (Hands-Free) Overlay -->
+    <div id="chef-mode-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(253, 246, 227, 0.95); z-index:9999; padding:40px; flex-direction:column; justify-content:center; align-items:center; text-align:center; backdrop-filter: blur(10px);">
+        <h1 id="chef-step-text" style="font-size: 3rem; color: var(--color-accent-primary); margin-bottom: 30px; border:none; text-shadow:none; padding: 20px; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 900px; line-height: 1.4;">Загрузка шага...</h1>
+        <div style="font-size: 1.5rem; color: var(--color-text-main); margin-bottom: 20px; font-weight: 600;">
+          Скажите <strong style="color:var(--color-accent-primary);">"Дальше"</strong>, <strong style="color:var(--color-accent-primary);">"Назад"</strong> или <strong style="color:var(--color-accent-primary);">"Повтори"</strong>
+        </div>
+        <div id="chef-status" style="font-size: 1.2rem; color: #4caf50; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px;">
+          <span style="display: inline-block; width: 15px; height: 15px; background: #4caf50; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+          Слушаю... 🎤
+        </div>
+        <div id="chef-last-command" style="font-size: 1.1rem; color: #795548; margin-top: 15px; font-style: italic;"></div>
+        <button class="btn btn-danger" onclick="stopChefMode()" style="margin-top: 50px; font-size: 1.2rem; padding: 15px 40px;">Выйти из режима</button>
+    </div>
+
+    <style>
+      @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+      }
+    </style>
+
+    <script>
+      const recipeId = parseInt("<%= recipeId %>", 10);
+      const userId = parseInt("<%= userId %>", 10);
+      const container = document.getElementById("recipe-container");
+      const errorMessageDiv = document.getElementById("error-message");
+
+      async function fetchRecipeDetails() {
+        try {
+          const response = await fetch(`/api/recipes/${recipeId}`);
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Ошибка HTTP: ${response.status}`);
+          }
+          const recipe = await response.json();
+          // Title is now in the header, so we don't need it in the H1 here.
+          
+          container.innerHTML = `
+            <p style="font-size: 1.1rem; margin-bottom: 20px;"><strong>Описание:</strong> ${recipe.description || "Нет описания"}</p>
+            <div class="grid-3" style="margin-bottom: 30px;">
+              <div style="background: var(--color-highlight); padding: 15px; border-radius: 15px; border: 2px dashed var(--color-bg-accent);">
+                <strong>Порции:</strong> ${recipe.servings || "-"}
+              </div>
+              <div style="background: var(--color-highlight); padding: 15px; border-radius: 15px; border: 2px dashed var(--color-bg-accent);">
+                <strong>Подготовка:</strong> ${recipe.prep_time_min || 0} мин</div>
+              <div style="background: var(--color-highlight); padding: 15px; border-radius: 15px; border: 2px dashed var(--color-bg-accent);">
+                <strong>Готовка:</strong> ${recipe.cook_time_min || 0} мин
+              </div>
+            </div>
+            <div>
+              <h2 style="font-family: 'Caveat', cursive; font-size: 2.5rem; color: var(--color-text-main); border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Ингредиенты</h2>
+              ${renderIngredients(recipe.ingredients)}
+            </div>
+            <div>
+              <h2 style="font-family: 'Caveat', cursive; font-size: 2.5rem; color: var(--color-text-main); border-left: 5px solid var(--color-accent-primary); padding-left: 15px;">Инструкции по приготовлению</h2>
+              <pre>${recipe.instructions || "Нет инструкций"}</pre>
+            </div>
+            <div style="margin-top: 40px; padding-top: 25px; border-top: 2px dashed var(--color-bg-accent); display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+              <button onclick="startChefMode()" class="btn btn-primary" style="background-color: #4caf50; border-color: #2e7d32; box-shadow: 4px 6px 0px #2e7d32; font-size: 1.2rem; padding: 12px 30px;">👨‍🍳 Hands-Free Шеф-повар</button>
+              <a href="/api/recipes/edit/${recipeId}" class="btn btn-secondary">Редактировать рецепт</a>
+              <a href="/api/recipe_detail/${recipeId}" class="btn btn-primary">Адаптировать с ИИ</a>
+              <a href="/api/recipes/new" class="btn btn-secondary">Создать новый рецепт</a>
+              <a href="/api/recipes" class="btn btn-secondary">Вернуться к списку</a>
+            </div>
+          `;
+        } catch (error) {
+          console.error("Ошибка загрузки данных рецепта:", error);
+          container.innerHTML = "";
+          errorMessageDiv.style.display = "block";
+          errorMessageDiv.textContent = `Не удалось загрузить рецепт. ${error.message}`;
+        }
+      }
+
+      function renderIngredients(ingredients) {
+        if (!ingredients || ingredients.length === 0) { return "<p>Ингредиенты не указаны.</p>"; }
+        return `
+          <ul class="styled-list">
+            ${ingredients.map((item) => `
+              <li>
+                <strong style="color: var(--color-accent-primary); font-size: 1.1rem;">${item.quantity || ""} ${item.unit || item.unit_of_measure || ""}</strong>
+                ${item.ingredient_name} ${item.notes ? ` <em>(${item.notes})</em>` : ""}
+              </li>
+            `).join("")}
+          </ul>
+        `;
+      }
+
+      fetchRecipeDetails();
+
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+      let chefSteps = [];
+      let currentStepIndex = 0;
+      let recognition = null;
+      let isChefMode = false;
+
+      function startChefMode() {
+          const preElement = document.querySelector('pre');
+          if(!preElement) return;
+          const rawText = preElement.textContent;
+          chefSteps = rawText.split(/(?:\n|\.\s+)/).filter(s => s.trim().length > 3);
+          if(chefSteps.length === 0) { alert("Нет инструкций для чтения."); return; }
+          currentStepIndex = 0;
+          isChefMode = true;
+          document.getElementById('chef-mode-overlay').style.display = 'flex';
+          initSpeechRecognition();
+          readCurrentStep();
+      }
+
+      function stopChefMode() {
+          isChefMode = false;
+          document.getElementById('chef-mode-overlay').style.display = 'none';
+          window.speechSynthesis.cancel();
+          if(recognition) { recognition.onend = null; recognition.stop(); }
+      }
+
+      function readCurrentStep() {
+          if(!isChefMode) return;
+          const text = chefSteps[currentStepIndex].trim();
+          document.getElementById('chef-step-text').textContent = `Шаг ${currentStepIndex + 1}: ${text}`;
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'ru-RU';
+          utterance.rate = 0.9;
+          const voices = window.speechSynthesis.getVoices();
+          const ruVoices = voices.filter(v => v.lang.includes('ru'));
+          const bestVoice = ruVoices.find(v => v.name.includes('Google') || v.name.includes('Pavel') || v.name.includes('Yuri')) || ruVoices[0];
+          if(bestVoice) utterance.voice = bestVoice;
+          window.speechSynthesis.speak(utterance);
+      }
+      
+      function onRecognitionEnd() { if(isChefMode) { try { recognition.start(); } catch(e) { console.log("Restart error", e); } } }
+
+      function initSpeechRecognition() {
+          const isOpera = (!!window.opr && !!opr.addons) || !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+          if (isOpera) {
+              document.getElementById('chef-status').innerHTML = "⚠️ Браузер Opera блокирует голосовое управление. Используйте Chrome/Edge.";
+              return;
+          }
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          if(!SpeechRecognition) { document.getElementById('chef-status').textContent = "Голосовое управление не поддерживается."; return; }
+          if(recognition) { recognition.onend = null; recognition.stop(); }
+          recognition = new SpeechRecognition();
+          recognition.lang = 'ru-RU';
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.onresult = (event) => {
+              if(!isChefMode || window.speechSynthesis.speaking) return;
+              for (let i = event.resultIndex; i < event.results.length; ++i) {
+                  const command = event.results[i][0].transcript.toLowerCase().trim();
+                  document.getElementById('chef-last-command').textContent = `Вы сказали: "${command}"`;
+                  if (event.results[i].isFinal || command.includes("дальше") || command.includes("назад") || command.includes("повтори")) {
+                      if (command.includes("дальше") || command.includes("следующий") || command.includes("далее")) {
+                          if(currentStepIndex < chefSteps.length - 1) { currentStepIndex++; readCurrentStep(); }
+                          else { window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance("Приятного аппетита!")); document.getElementById('chef-step-text').textContent = "Готово! 🎉"; }
+                      } else if (command.includes("назад") || command.includes("предыдущий")) {
+                          if(currentStepIndex > 0) { currentStepIndex--; readCurrentStep(); }
+                      } else if (command.includes("повтори")) { readCurrentStep(); }
+                      else if (command.includes("выход") || command.includes("стоп")) { stopChefMode(); }
+                  }
+              }
+          };
+          recognition.onerror = (e) => console.error("Speech error:", e.error);
+          recognition.onend = onRecognitionEnd;
+          try { recognition.start(); } catch(e) { console.error("Recognition start error", e); }
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Главная</title>
+  <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+</head>
+
+<body>
+  <%- include('partials/header', { showBackButton: false }) %>
+
+  <div class="app-container">
+    <div class="glass-panel" style="text-align: center; max-width: 800px; margin: 0 auto 40px auto; padding: 40px; border-radius: 30px;">
+      <h1 style="border:none; text-shadow:none; padding-bottom:0; font-size: 4.5rem; margin-bottom: 10px;">Кулинарная Магия</h1>
+      <p style="color: var(--color-text-main); font-size: 1.4rem; font-weight: 600;">Выберите действие для начала работы</p>
+    </div>
+
+    <div class="grid-3">
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px;">
+        <h3>Запасы</h3>
+        <p>Управление вашими запасами продуктов.</p>
+        <a href="/api/inventory/manager" class="btn btn-primary">Перейти</a>
+      </div>
+
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px;">
+        <h3>ИИ Шеф</h3>
+        <p>Генерация рецептов по вашим продуктам.</p>
+        <a href="/api/generate_recipe" class="btn btn-primary">Сгенерировать</a>
+      </div>
+
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px;">
+        <h3>Мои Рецепты</h3>
+        <p>Ваша личная коллекция рецептов.</p>
+        <a href="/api/recipes" class="btn btn-primary">Открыть</a>
+      </div>
+
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px;">
+        <h3>Создать Рецепт</h3>
+        <p>Добавить свой собственный рецепт.</p>
+        <a href="/api/recipes/new" class="btn btn-primary">Создать</a>
+      </div>
+
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px;">
+        <h3>Планы Меню</h3>
+        <p>Планируйте ваше питание на неделю вперед.</p>
+        <a href="/api/plans" class="btn btn-primary">Посмотреть</a>
+      </div>
+      
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px;">
+        <h3>Мои Диеты</h3>
+        <p>Настройки диетических ограничений.</p>
+        <a href="/api/diets" class="btn btn-primary">Настроить</a>
+      </div>
+    </div>
+
+    <!-- Блок отчетов - центрируем отдельно -->
+    <div style="display: flex; justify-content: center; gap: 25px; flex-wrap: wrap; margin-top: 25px;">
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px; width: 100%; max-width: 380px;">
+        <h3>Создать Отчет</h3>
+        <p>Оставить отзыв о работе приложения.</p>
+        <a href="/api/create_feedback" class="btn btn-secondary">Отправить</a>
+      </div>
+
+      <div class="glass-panel hoverable" style="display: flex; flex-direction: column; justify-content: space-between; text-align: center; padding: 40px 20px; width: 100%; max-width: 380px;">
+        <h3>История Отчетов</h3>
+        <p>Посмотреть ваши предыдущие отзывы.</p>
+        <a href="/api/feedback_history" class="btn btn-secondary">Посмотреть</a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

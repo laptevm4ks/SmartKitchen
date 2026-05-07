@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#D84315"/>
+  <g transform="translate(256,270)" text-anchor="middle">
+    <!-- Chef hat -->
+    <ellipse cx="0" cy="-80" rx="100" ry="48" fill="#FFF5E1"/>
+    <circle cx="-54" cy="-128" r="44" fill="#FFF5E1"/>
+    <circle cx="0" cy="-144" r="48" fill="#FFF5E1"/>
+    <circle cx="54" cy="-128" r="44" fill="#FFF5E1"/>
+    <rect x="-80" y="-86" width="160" height="52" rx="10" fill="#FFF5E1"/>
+    <!-- Steam lines -->
+    <path d="M-32,44 Q-38,16 -22,0" stroke="#FFAB91" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M0,48 Q-6,16 10,-4" stroke="#FFAB91" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M32,44 Q26,16 42,0" stroke="#FFAB91" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <!-- Pan -->
+    <ellipse cx="0" cy="86" rx="94" ry="26" fill="#5D4037"/>
+    <ellipse cx="0" cy="76" rx="94" ry="26" fill="#795548"/>
+    <rect x="86" y="64" width="74" height="22" rx="10" fill="#5D4037"/>
+    <!-- Sparkle -->
+    <g transform="translate(96,-140)" fill="#FFD54F">
+      <polygon points="0,-22 6,-6 22,0 6,6 0,22 -6,6 -22,0 -6,-6"/>
+    </g>
+  </g>
+</svg>

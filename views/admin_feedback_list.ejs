@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Админ Панель: Отчеты</title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      .report-table th,
+      .report-table td {
+        padding: 12px 15px;
+        border: 1px solid var(--color-bg-accent);
+        text-align: left;
+        vertical-align: top;
+      }
+      .report-table th {
+        background-color: var(--color-bg-accent);
+        color: var(--color-text-main);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+      }
+      .report-table tr:nth-child(even) {
+        background-color: var(--color-highlight);
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        color: white;
+        white-space: nowrap;
+      }
+      .status-Новый {
+        background-color: #fbc02d;
+        color: #5d4037;
+      }
+      .status-В_работе {
+        background-color: #1e88e5;
+      }
+      .status-Решено {
+        background-color: #43a047;
+      }
+      .status-Отклонен {
+        background-color: #e53935;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="main-header">
+      <a href="/admin_dashboard" class="logo">Умная Кухня (Админ)</a>
+      <nav class="main-nav">
+        <a href="/admin_dashboard">В панель</a>
+      </nav>
+    </header>
+    <div class="app-container">
+    <div class="glass-panel" style="max-width: 1200px; margin: 0 auto;">
+      <h1 style="border:none; text-shadow:none; padding-bottom:0;">Панель Администратора: Отчеты Обратной Связи</h1>
+
+      <% if (locals.error) { %>
+      <p style="color: red; font-weight: 700"><%= error %></p>
+      <% } %> <% if (reports.length === 0) { %>
+      <p style="text-align: center; font-size: 1.2rem; margin-top: 50px">
+        Нет активных отчетов обратной связи.
+      </p>
+      <% } else { %>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Пользователь</th>
+            <th>Тема</th>
+            <th>Статус</th>
+            <th>Создан</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% reports.forEach(function(report) { var statusClass =
+          report.status.replace(/\s/g, '_'); %>
+          <tr>
+            <td><%= report.report_id %></td>
+            <td>
+              <strong><%= report.username %></strong> <br />
+              <small>(<%= report.email %>)</small>
+            </td>
+            <td>
+              <strong><%= report.subject %></strong>
+              <br />
+              <small style="color: #666">
+                <% if (report.message.length > 50) { %> <%=
+                report.message.substring(0, 50) %>... <% } else { %> <%=
+                report.message %> <% } %>
+              </small>
+            </td>
+            <td>
+              <span class="status-badge status-<%= statusClass %>">
+                <%= report.status %>
+              </span>
+            </td>
+            <td>
+              <%= new Date(report.created_at).toLocaleDateString('ru-RU', { day:
+              'numeric', month: 'short', year: 'numeric' }) %>
+            </td>
+            <td>
+              <a
+                href="/admin_dashboard/feedback/<%= report.report_id %>/edit"
+                class="btn btn-secondary"
+                style="padding: 5px 10px; font-size: 0.9rem;"
+              >
+                Редактировать
+              </a>
+            </td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+  </body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+    <style>
+      .ingredient-item { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; padding: 10px; border-bottom: 1px dashed var(--color-bg-accent); }
+      .ingredient-item > * { flex: 1 1 150px; }
+      .ingredient-item select, .ingredient-item input[type="text"] { flex: 2 1 250px; }
+      .ingredient-item button { flex: 0 1 auto; margin: 0; padding: 8px 15px; font-size: 0.9rem; }
+      #status-message { padding: 15px; margin-top: 20px; border-radius: 10px; font-weight: 700; }
+      @media (max-width: 600px) {
+        .ingredient-item { flex-direction: column; }
+        .ingredient-item > * { width: 100%; flex: none; }
+      }
+    </style>
+</head>
+<body>
+    <%- include('partials/header', { 
+      showBackButton: false, 
+      extraLinks: [
+        { href: `/api/recipes/view/${recipe.recipe_id}`, text: 'Отмена' },
+        { href: '/dashboard', text: 'В меню' }
+      ] 
+    }) %>
+    <div class="app-container">
+      <div class="glass-panel">
+        <div id="status-message" style="color: red; display: none;"></div>
+
+        <form id="edit-recipe-form" style="background: transparent; border: none; box-shadow: none; padding: 0;">
+            <div>
+                <label for="title">Название:</label>
+                <input type="text" id="title" class="form-control" value="<%= recipe.title %>" required>
+            </div>
+            <div>
+                <label for="description">Описание:</label>
+                <textarea id="description" class="form-control"><%= recipe.description %></textarea>
+            </div>
+            
+            <div class="grid-3" style="background: transparent; border: none; box-shadow: none; padding: 0; margin-bottom: 20px;">
+                <div>
+                    <label for="servings">Порции:</label>
+                    <input type="number" id="servings" class="form-control" value="<%= recipe.servings %>" min="1">
+                </div>
+                <div>
+                    <label for="prep_time">Время подготовки (мин):</label>
+                    <input type="number" id="prep_time" class="form-control" value="<%= recipe.prep_time_min %>" min="0">
+                </div>
+                <div>
+                    <label for="cook_time">Время готовки (мин):</label>
+                    <input type="number" id="cook_time" class="form-control" value="<%= recipe.cook_time_min %>" min="0">
+                </div>
+            </div>
+
+            <div>
+                <label for="instructions">Инструкции:</label>
+                <textarea id="instructions" class="form-control" rows="10" required><%= recipe.instructions %></textarea>
+            </div>
+
+
+            <h3 style="border-left: 5px solid var(--color-accent-primary); padding-left:15px; border-radius: 5px 0 0 5px; font-family: 'Caveat', cursive; font-size:2.5rem; color:var(--color-text-main);">Ингредиенты</h3>
+            <div id="ingredients-list-container">
+                <% recipe.ingredients.forEach(item => { %>
+                    <div class="ingredient-item">
+                        <select class="ingredient-select form-control">
+                            <% availableIngredients.forEach(ing => { %>
+                                <option value="<%= ing.id %>" <%= item.ingredient_id == ing.id ? 'selected' : '' %>>
+                                    <%= ing.name %> (<%= ing.default_unit %>)
+                                </option>
+                            <% }); %>
+                        </select>
+                        <input type="number" class="quantity-input form-control" placeholder="Количество" value="<%= item.quantity %>" required min="0.01" step="0.01">
+                        <input type="text" class="notes-input form-control" placeholder="Заметки (по вкусу, не обязательно)" value="<%= item.notes %>">
+                        <button type="button" class="btn btn-danger" onclick="this.parentNode.remove()">Удалить</button>
+                    </div>
+                <% }); %>
+            </div>
+            <button type="button" id="add-ingredient-btn" class="btn btn-secondary" onclick="addIngredientRow()">Добавить Ингредиент</button>
+
+            <br>
+            <button type="submit" id="save-btn" class="btn btn-primary" style="width:100%; margin-top:20px;">Сохранить Изменения</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+        const recipeId = '<%= recipe.recipe_id %>';
+        const availableIngredients = JSON.parse('<%- JSON.stringify(availableIngredients) %>');
+        
+        function addIngredientRow(ingredientId = '', quantity = '', notes = '') {
+            const container = document.getElementById('ingredients-list-container');
+            const div = document.createElement('div');
+            div.className = 'ingredient-item';
+            let selectHtml = `<select class="ingredient-select">`;
+            availableIngredients.forEach(ing => {
+                const selected = ing.id == ingredientId ? 'selected' : '';
+                selectHtml += `<option value="${ing.id}" ${selected}>${ing.name} (${ing.default_unit || 'ед.'})</option>`;
+            });
+            selectHtml += `</select>`;
+            div.innerHTML = `
+                ${selectHtml}
+                <input type="number" class="quantity-input form-control" placeholder="Количество" value="${quantity}" required min="0.01" step="0.01">
+                <input type="text" class="notes-input form-control" placeholder="Заметки (не обязательно)" value="${notes}">
+                <button type="button" class="btn btn-danger" onclick="this.parentNode.remove()">Удалить</button>
+            `;
+            container.appendChild(div);
+        }
+
+        document.getElementById('edit-recipe-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const submitButton = form.querySelector('#save-btn');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Сохранение...';
+            const ingredientItems = document.querySelectorAll('#ingredients-list-container .ingredient-item');
+            const ingredientsData = [];
+            ingredientItems.forEach(item => {
+                const quantity = parseFloat(item.querySelector('.quantity-input').value);
+                if (isNaN(quantity) || quantity <= 0) return;
+                ingredientsData.push({
+                    ingredient_id: item.querySelector('.ingredient-select').value,
+                    quantity: quantity,
+                    notes: item.querySelector('.notes-input').value.trim(),
+                });
+            });
+            const recipeData = {
+                title: document.getElementById('title').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                instructions: document.getElementById('instructions').value.trim(),
+                servings: parseInt(document.getElementById('servings').value) || 1,
+                prep_time: parseInt(document.getElementById('prep_time').value) || 0,
+                cook_time: parseInt(document.getElementById('cook_time').value) || 0,
+                ingredients: ingredientsData
+            };
+            const statusMessage = document.getElementById('status-message');
+            statusMessage.style.display = 'none';
+            try {
+                const response = await fetch(`/api/recipes/${recipeId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(recipeData)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    statusMessage.textContent = '✅ Рецепт успешно обновлен!';
+                    statusMessage.style.color = 'white';
+                    statusMessage.style.backgroundColor = '#4caf50';
+                    statusMessage.style.display = 'block';
+                    setTimeout(() => { window.location.href = `/api/recipes/view/${recipeId}`; }, 1500);
+                } else {
+                    statusMessage.textContent = `❌ Ошибка сохранения: ${result.error || response.statusText}`;
+                    statusMessage.style.color = '#c62828';
+                    statusMessage.style.backgroundColor = '#ffebee';
+                    statusMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Ошибка сети:', error);
+                statusMessage.textContent = '❌ Критическая ошибка сети при сохранении.';
+                statusMessage.style.color = '#c62828';
+                statusMessage.style.backgroundColor = '#ffebee';
+                statusMessage.style.display = 'block';
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Сохранить Изменения';
+            }
+        });
+    </script>
+</body>
+</html>

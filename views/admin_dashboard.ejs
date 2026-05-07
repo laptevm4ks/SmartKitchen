@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Панель Администратора</title>
+    <link rel="stylesheet" href="/style.css">
+    <%- include('_pwa_head') %>
+  </head>
+  <body>
+    <%- include('partials/header', { showBackButton: false, title: 'Админ-панель' }) %>
+    <div class="app-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh;">
+      <div class="glass-panel" style="max-width: 400px; text-align: center; padding: 40px;">
+        <h3 style="font-family: 'Caveat', cursive; font-size: 2.2rem; margin-bottom: 20px;">ОТЧЕТЫ</h3>
+        <a href="/admin_dashboard/feedback" class="btn btn-primary" style="display: block;">
+          ОТЧЕТЫ ОБРАТНОЙ СВЯЗИ
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

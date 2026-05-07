@@ -1,0 +1,21 @@
+<header class="main-header">
+  <div style="display: flex; align-items: center; gap: 20px;">
+    <a href="/dashboard" class="logo">Умная Кухня</a>
+    <% if (typeof title !== 'undefined' && title) { %>
+    <span class="page-title" style="color: var(--color-text-main); font-weight: 700; font-size: 1.2rem; border-left: 2px solid var(--color-accent-primary); padding-left: 15px;">
+      <%= title %>
+    </span>
+    <% } %>
+  </div>
+  <nav class="main-nav">
+    <% if (typeof showBackButton !== 'undefined' && showBackButton) { %>
+      <a href="/dashboard">Назад</a>
+    <% } %>
+    <% if (typeof extraLinks !== 'undefined' && extraLinks) { %>
+      <% extraLinks.forEach(link => { %>
+        <a href="<%= link.href %>"><%= link.text %></a>
+      <% }) %>
+    <% } %>
+    <a href="/logout" onclick="return confirm('Вы действительно хотите выйти?')">Выйти</a>
+  </nav>
+</header>

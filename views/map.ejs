@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта - Кухня</title>
+    <%- include('_pwa_head') %>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --color-bg-main: #fdf6e3;
+            --color-bg-accent: #e6d5c3;
+            --color-text-main: #5d4037;
+            --color-accent-primary: #d84315;
+            --color-accent-secondary: #ffab91;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            color: var(--color-text-main);
+            background-color: var(--color-bg-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 15px 20px;
+            background-color: var(--color-bg-main);
+            border-bottom: 3px dashed var(--color-bg-accent);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        h1 {
+            font-family: 'Caveat', cursive;
+            font-size: 2.5rem;
+            color: var(--color-accent-primary);
+        }
+
+        .back-btn {
+            display: inline-block;
+            background-color: var(--color-accent-primary);
+            color: white;
+            text-decoration: none;
+            font-weight: 700;
+            padding: 8px 16px;
+            border-radius: 15px;
+            border: 2px solid var(--color-text-main);
+            box-shadow: 3px 4px 0px var(--color-text-main);
+            transition: all 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background-color: var(--color-accent-secondary);
+            color: var(--color-text-main);
+            transform: translateY(-2px);
+        }
+
+        .back-btn:active {
+            transform: translateY(2px);
+            box-shadow: 1px 2px 0px var(--color-text-main);
+        }
+
+        #map {
+            flex-grow: 1;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    <!-- Yandex.Maps API -->
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU" type="text/javascript"></script>
+    <script type="text/javascript">
+        ymaps.ready(init);
+        function init(){
+            // Создание карты.
+            var myMap = new ymaps.Map("map", {
+                // Координаты центра карты.
+                // Порядок по умолчанию: «широта, долгота».
+                // (Москва)
+                center: [55.76, 37.64],
+                // Уровень масштабирования. Допустимые значения:
+                // от 0 (весь мир) до 19.
+                zoom: 10
+            });
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Карта Покупок</h1>
+        <a href="/dashboard" class="back-btn">← Меню</a>
+    </header>
+    <div id="map"></div>
+</body>
+</html>
